@@ -37,10 +37,10 @@ const Dashboard = () => {
 
   // Dummy sensor data
   const sensorData = {
-    soilMoisture: 11,
+    soilMoisture: 80,
     soilPh: 6.8,
     temperature: 28.5,
-    humidity: 11,
+    humidity: 80,
     lightIntensity: 850,
     nitrogen: 45,
     phosphorus: 38,
