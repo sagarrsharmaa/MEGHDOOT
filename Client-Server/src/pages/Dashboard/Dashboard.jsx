@@ -11,13 +11,24 @@ import {
   CheckCircle,
   Zap,
   Leaf,
-  BarChart3
+  BarChart3,
+  Mail,
+  X,
+  Send,
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
 import VoiceIrrigationBot from '../../components/VoiceIrrigationBot/VoiceIrrigationBot';
 
 const Dashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [alertsVisible, setAlertsVisible] = useState(true);
+
+  // Email notification state
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState('');
+  const [emailStatus, setEmailStatus] = useState('idle'); // idle | sending | success | error
+  const [emailMessage, setEmailMessage] = useState('');
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -71,6 +82,50 @@ const Dashboard = () => {
   ];
 
   const rainExpected = alerts.some((alert) => alert.message.toLowerCase().includes("rain expected"));
+
+  // Email send handler
+  const handleSendEmail = async () => {
+    if (!recipientEmail.trim()) {
+      setEmailStatus('error');
+      setEmailMessage('Please enter an email address');
+      return;
+    }
+
+    setEmailStatus('sending');
+    setEmailMessage('');
+
+    try {
+      const response = await fetch('http://localhost:3000/notify/send-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientEmail: recipientEmail.trim(),
+          sensorData,
+          alerts,
+          mlAnalysis,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setEmailStatus('success');
+        setEmailMessage('Alert email sent successfully! ✉️');
+        setTimeout(() => {
+          setShowEmailModal(false);
+          setEmailStatus('idle');
+          setRecipientEmail('');
+          setEmailMessage('');
+        }, 2500);
+      } else {
+        setEmailStatus('error');
+        setEmailMessage(data.message || 'Failed to send email');
+      }
+    } catch (err) {
+      setEmailStatus('error');
+      setEmailMessage('Network error — is the backend running?');
+    }
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -345,6 +400,113 @@ const Dashboard = () => {
           <p>Smart Agriculture System | Hardware sensors connected | ML models active</p>
         </div>
       </div>
+
+      {/* Floating Email Button */}
+      <button
+        onClick={() => setShowEmailModal(true)}
+        className="fixed bottom-44 right-6 z-50 bg-gradient-to-r from-green-600 to-emerald-500 text-white p-4 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group"
+        title="Send Email Alert"
+      >
+        <Mail className="w-6 h-6 group-hover:animate-bounce" />
+      </button>
+
+      {/* Email Modal Overlay */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md mx-4 overflow-hidden animate-in">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-500 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-white/20 p-2 rounded-lg">
+                    <Mail className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Send Email Alert</h3>
+                    <p className="text-green-100 text-sm">Dashboard metrics & alerts report</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEmailModal(false);
+                    setEmailStatus('idle');
+                    setEmailMessage('');
+                  }}
+                  className="text-white/80 hover:text-white hover:bg-white/20 p-1 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              {/* What will be sent */}
+              <div className="mb-5 p-4 bg-green-50 rounded-xl border border-green-100">
+                <p className="text-sm font-medium text-green-800 mb-2">📧 Email will include:</p>
+                <ul className="text-xs text-green-700 space-y-1">
+                  <li>• Soil Moisture: {sensorData.soilMoisture}% | Humidity: {sensorData.humidity}%</li>
+                  <li>• Temperature: {sensorData.temperature}°C | pH: {sensorData.soilPh}</li>
+                  <li>• NPK levels & {alerts.length} active alert(s)</li>
+                  <li>• AI analysis & recommendations</li>
+                </ul>
+              </div>
+
+              {/* Email Input */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Recipient Email Address
+                </label>
+                <input
+                  type="email"
+                  value={recipientEmail}
+                  onChange={(e) => {
+                    setRecipientEmail(e.target.value);
+                    if (emailStatus === 'error') setEmailStatus('idle');
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendEmail()}
+                  placeholder="farmer@example.com"
+                  disabled={emailStatus === 'sending' || emailStatus === 'success'}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all text-gray-900 placeholder-gray-400 disabled:opacity-50 disabled:bg-gray-50"
+                />
+              </div>
+
+              {/* Status Messages */}
+              {emailMessage && (
+                <div className={`mb-4 p-3 rounded-xl text-sm font-medium ${
+                  emailStatus === 'success'
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  {emailMessage}
+                </div>
+              )}
+
+              {/* Send Button */}
+              <button
+                onClick={handleSendEmail}
+                disabled={emailStatus === 'sending' || emailStatus === 'success'}
+                className={`w-full py-3 px-4 rounded-xl font-semibold text-white transition-all duration-300 flex items-center justify-center space-x-2 ${
+                  emailStatus === 'success'
+                    ? 'bg-green-500'
+                    : emailStatus === 'sending'
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 hover:shadow-lg active:scale-[0.98]'
+                }`}
+              >
+                {emailStatus === 'sending' ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /><span>Sending...</span></>
+                ) : emailStatus === 'success' ? (
+                  <><CheckCircle2 className="w-5 h-5" /><span>Sent!</span></>
+                ) : (
+                  <><Send className="w-5 h-5" /><span>Send Alert Email</span></>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <VoiceIrrigationBot
         soilMoisture={sensorData.soilMoisture}
         humidity={sensorData.humidity}

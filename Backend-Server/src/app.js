@@ -22,4 +22,7 @@ app.use(express.static("public"));
 import aiRouter from "./routes/ai.routes.js";
 app.use("/ai", aiRouter);
 
+import notificationRouter from "./routes/notification.routes.js";
+app.use("/notify", notificationRouter);
+
 export { app };
